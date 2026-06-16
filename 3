@@ -1,0 +1,167 @@
+document.addEventListener('DOMContentLoaded', () => {
+    
+    // ==========================================================================
+    // 1. ACCORDION INTERATIVO
+    // ==========================================================================
+    const headers = document.querySelectorAll('.accordion-header');
+
+    headers.forEach(header => {
+        header.addEventListener('click', () => {
+            const item = header.parentElement;
+            const panel = header.nextElementSibling;
+            const estaAtivo = item.classList.contains('ativo');
+
+            // Fecha todos antes de abrir o atual (comportamento clássico)
+            document.querySelectorAll('.accordion-item').forEach(i => {
+                i.classList.remove('ativo');
+                i.querySelector('.accordion-panel').setAttribute('hidden', 'true');
+                i.querySelector('.accordion-header').setAttribute('aria-expanded', 'false');
+            });
+
+            if (!estaAtivo) {
+                item.classList.add('ativo');
+                panel.removeAttribute('hidden');
+                header.setAttribute('aria-expanded', 'true');
+            }
+        });
+    });
+
+    // ==========================================================================
+    // 2. ACESSIBILIDADE: CONTROLE DE TAMANHO DE FONTE
+    // ==========================================================================
+    let tamanhoAtualBase = 100; // Porcentagem
+    const btnAumentar = document.getElementById('btn-fonte-aumentar');
+    const btnDiminuir = document.getElementById('btn-fonte-diminuir');
+
+    btnAumentar.addEventListener('click', () => {
+        if (tamanhoAtualBase < 140) {
+            tamanhoAtualBase += 10;
+            document.documentElement.style.fontSize = `${tamanhoAtualBase}%`;
+        }
+    });
+
+    btnDiminuir.addEventListener('click', () => {
+        if (tamanhoAtualBase > 80) {
+            tamanhoAtualBase -= 10;
+            document.documentElement.style.fontSize = `${tamanhoAtualBase}%`;
+        }
+    });
+
+    // ==========================================================================
+    // 3. ACESSIBILIDADE: ALTERNÂNCIA DE TEMA (CLARO/ESCURO)
+    // ==========================================================================
+    const btnTema = document.getElementById('btn-tema');
+    
+    btnTema.addEventListener('click', () => {
+        const temaAtual = document.documentElement.getAttribute('data-theme');
+        if (temaAtual === 'light') {
+            document.documentElement.removeAttribute('data-theme');
+        } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+    });
+
+    // ==========================================================================
+    // 4. ACESSIBILIDADE: LEITURA POR VOZ (SpeechSynthesis API)
+    // ==========================================================================
+    const btnLer = document.getElementById('btn-voz-ler');
+    const btnParar = document.getElementById('btn-voz-parar');
+    let sotaqueBrasil = null;
+
+    // Carrega vozes de forma assíncrona para garantir compatibilidade com navegadores
+    function carregarVozes() {
+        const vozes = window.speechSynthesis.getVoices();
+        sotaqueBrasil = vozes.find(voz => voz.lang === 'pt-BR' || voz.lang.includes('pt'));
+    }
+    carregarVozes();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = carregarVozes;
+    }
+
+    btnLer.addEventListener('click', () => {
+        // Interrompe qualquer leitura anterior ativa
+        window.speechSynthesis.cancel();
+
+        // Seleciona exclusivamente o conteúdo textual relevante do artigo
+        const containerLeitura = document.getElementById('leitura-conteudo');
+        
+        // Clona o nó para limpar elementos indesejados (como o formulário interno) sem estragar o DOM
+        const clone = containerLeitura.cloneNode(true);
+        const elementosParaRemover = clone.querySelectorAll('.comentarios-section, button, script, style');
+        elementosParaRemover.forEach(el => el.remove());
+
+        const textoParaLer = clone.innerText;
+
+        if (textoParaLer.trim() !== "") {
+            const mensagem = new SpeechSynthesisUtterance(textoParaLer);
+            
+            if (sotaqueBrasil) {
+                mensagem.voice = sotaqueBrasil;
+            }
+            mensagem.lang = 'pt-BR';
+            mensagem.rate = 1.0; // Velocidade natural
+
+            mensagem.onstart = () => {
+                btnLer.style.display = 'none';
+                btnParar.style.display = 'inline-block';
+            };
+
+            mensagem.onend = () => {
+                btnLer.style.display = 'inline-block';
+                btnParar.style.display = 'none';
+            };
+
+            mensagem.onerror = () => {
+                btnLer.style.display = 'inline-block';
+                btnParar.style.display = 'none';
+            };
+
+            window.speechSynthesis.speak(mensagem);
+        }
+    });
+
+    btnParar.addEventListener('click', () => {
+        window.speechSynthesis.cancel();
+        btnLer.style.display = 'inline-block';
+        btnParar.style.display = 'none';
+    });
+
+    // ==========================================================================
+    // 5. PROCESSAMENTO DO FORMULÁRIO DE INSCRIÇÃO
+    // ==========================================================================
+    const formSeminario = document.getElementById('form-seminario');
+    
+    formSeminario.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const nome = document.getElementById('nome').value;
+        
+        alert(`Parabéns, ${nome}! Sua inscrição para o seminário on-line de Inteligência Artificial foi efetuada com sucesso.`);
+        formSeminario.reset();
+    });
+
+    // ==========================================================================
+    // 6. SESSÃO DE INTERAÇÃO (COMENTÁRIOS INTERATIVOS)
+    // ==========================================================================
+    const formComentario = document.getElementById('form-comentario');
+    const txtComentario = document.getElementById('txt-comentario');
+    const listaComentarios = document.getElementById('lista-comentarios');
+
+    formComentario.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const texto = txtComentario.value.trim();
+
+        if (texto) {
+            const divComentario = document.createElement('div');
+            divComentario.classList.add('comentario-item');
+            
+            // Tratamento contra injeção de scripts maliciosos (XSS)
+            const paragrafo = document.createElement('p');
+            paragrafo.textContent = texto;
+            
+            divComentario.appendChild(paragrafo);
+            listaComentarios.prepend(divComentario); // Adiciona no topo
+            
+            txtComentario.value = '';
+        }
+    });
+});
